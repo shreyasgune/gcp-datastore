@@ -8,7 +8,9 @@ import (
 
 	"cloud.google.com/go/datastore"
 	"github.com/GannettDigital/go-vault-utility"
+	"golang.org/x/oauth2/google"
 	"google.golang.org/api/iterator"
+	"google.golang.org/api/option"
 )
 
 // RBACTeamAssets - struct to hold data on what records and healthchecks a team has permission to edit
@@ -24,9 +26,7 @@ var (
 	retT2 RBACTeamAssets
 )
 
-const (
-	
-)
+const ()
 
 func populateSecret(vaultController *vaultutil.Controller, path string, secret string) string {
 	s, err := vaultController.GetSecretFieldString(path, secret)
@@ -41,7 +41,7 @@ func main() {
 	vaultBasePath := "secret/sre/datastore/carl-demo"
 	logger := log.New(os.Stdout, "", log.Ldate|log.Ltime|log.Lmicroseconds|log.Lshortfile)
 	vaultController, err := vaultutil.NewController(vaultutil.Config{
-		Logger:    logger,
+		Logger: logger,
 		// VaultRole: "dns-manager",
 	})
 	if err != nil {
@@ -49,8 +49,8 @@ func main() {
 	}
 	logger.Printf("successfully initialized vault controller instance")
 	// credjson := populateSecret(vaultController, vaultBasePath, "config")
-	os.Setenv("GOOGLE_APPLICATION_CREDENTIALS", fmt.Sprintf(populateSecret(vaultController, vaultBasePath, "config")))
-	fmt.Println(os.Getenv("GOOGLE_APPLICATION_CREDENTIALS"))
+	// os.Setenv("GOOGLE_APPLICATION_CREDENTIALS", fmt.Sprintf(populateSecret(vaultController, vaultBasePath, "config")))
+	// fmt.Println(os.Getenv("GOOGLE_APPLICATION_CREDENTIALS"))
 
 	t1 := RBACTeamAssets{
 		TeamName:     "marsVolta",
@@ -66,13 +66,20 @@ func main() {
 
 	// client
 	ctx := context.Background()
-	// client, err := storage.NewClient(ctx, option.WithCredentialsFile(jsonPath))
-    //     if err != nil {
-    //             log.Fatal(err)
-    //     }
-	client, err := datastore.NewClient(ctx, "ds-example-250420") //, option.WithCredentialsJSON([]byte(credjson)))            //(ctx, "ds-example-250420")
+
+	data := fmt.Sprintf(populateSecret(vaultController, vaultBasePath, "config"))
 	if err != nil {
-		fmt.Println(err)
+		log.Fatal(err)
+	}
+
+	creds, err := google.CredentialsFromJSON(ctx, []byte(data), datastore.ScopeDatastore)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	client, err := datastore.NewClient(ctx, "ds-example-250420", option.WithCredentials(creds))
+	if err != nil {
+		log.Fatal(err)
 		return
 	}
 
